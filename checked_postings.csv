@@ -1,3 +1,7 @@
-timestamp,title,fraud_score,risk_level
-2026-07-14 09:47:40,Software Engineer,0.38,Medium
-2026-07-14 16:23:26,software engineer,0.41,Medium
+timestamp,title,risk,score
+2026-07-14 19:19:43,work from home,High Risk,83.22
+2026-07-14 19:21:11,Work From Home Data Entry,High Risk,98.57
+2026-07-14 19:21:14,Work From Home Data Entry,High Risk,98.57
+2026-07-14 19:21:16,Work From Home Data Entry,High Risk,98.57
+2026-07-14 19:22:26,Software Engineer,Low Risk,22.36
+2026-07-14 19:22:29,Software Engineer,Low Risk,22.36
