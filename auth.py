@@ -291,35 +291,118 @@ div.stButton > button:hover {
         st.markdown("""<div class="branding-header"><div class="branding-logo"><span>🛡️</span></div><span class="branding-title" style="color:#FFFFFF !important; font-weight:700;">JobShield AI</span></div><div class="hero-text-container"><h2 class="left-title" style="color:#FFFFFF !important; font-weight:700; margin-top:0px;">Verify roles instantly.<br>Shield your search.</h2><p class="left-desc" style="color:#94A3B8 !important; margin:0;">Our NLP classifier identifies employment scams and compliance hazards in real time, protecting applicants from advanced fee fraud and data harvesting listing schemes.</p></div><div class="trust-container"><span class="trust-badge"><span>🛡️</span> &nbsp;NLP Classifier</span><span class="trust-badge"><span>🔒</span> &nbsp;Secure Vault</span><span class="trust-badge"><span>🟢</span> &nbsp;Heuristics Active</span></div>""", unsafe_allow_html=True)
 
     with c2:
-        st.markdown("""<div class="right-header"><h1 class="right-title">Welcome back</h1><p class="right-subtitle">Sign in to access your threat console</p></div><button class="social-btn"><span>🔑</span> &nbsp;Continue with Google workspace</button><div class="divider-row">or use credentials</div>""", unsafe_allow_html=True)
+        # ── Session state for Google flow ──
+        if "google_flow" not in st.session_state:
+            st.session_state.google_flow = False
 
-        st.markdown('<label class="input-label">Email Address</label>', unsafe_allow_html=True)
-        username = st.text_input(
-            "Email Address",
-            placeholder="you@company.com",
-            label_visibility="collapsed"
-        )
+        # ============================================================
+        # STEP 2 — GOOGLE WORKSPACE EMAIL VERIFICATION
+        # ============================================================
+        if st.session_state.google_flow:
+            st.markdown("""
+<div style="text-align:center; margin-bottom:28px; padding-top:8px;">
+    <svg width="40" height="40" viewBox="0 0 48 48" style="margin-bottom:14px;">
+        <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+        <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+        <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+        <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+        <path fill="none" d="M0 0h48v48H0z"/>
+    </svg>
+    <h2 style="font-size:20px; font-weight:700; color:#0F172A; margin:0 0 6px 0; letter-spacing:-0.02em;">Sign in with Google</h2>
+    <p style="font-size:13px; color:#52525B; margin:0; line-height:1.5;">Use your Google Workspace account<br>to continue to <b>JobShield AI</b></p>
+</div>""", unsafe_allow_html=True)
 
-        st.markdown('<label class="input-label">Password</label>', unsafe_allow_html=True)
-        password = st.text_input(
-            "Password",
-            type="password",
-            placeholder="••••••••",
-            label_visibility="collapsed"
-        )
+            st.markdown('<label class="input-label">Google Workspace Email</label>', unsafe_allow_html=True)
+            google_email = st.text_input(
+                "Google Workspace Email",
+                placeholder="you@gmail.com",
+                label_visibility="collapsed",
+                key="google_email_input"
+            )
 
-        if st.button(
-            "Sign In",
-            use_container_width=True
-        ):
-            if (
-                username == "admin@gmail.com"
-                and password == "admin123"
-            ):
-                st.session_state.logged_in = True
-                st.success("Authorized")
+            # Next button — full width, no columns
+            if st.button("Next →", use_container_width=True, type="primary", key="google_next"):
+                email = google_email.strip().lower()
+                if not email:
+                    st.error("Please enter your email address.")
+                elif not (email.endswith("@gmail.com") or email.endswith("@googleworkspace.com")):
+                    st.error("⛔ Enter a valid Gmail or Google Workspace email.")
+                elif email == "admin@gmail.com":
+                    st.session_state.logged_in = True
+                    st.session_state.google_flow = False
+                    st.rerun()
+                else:
+                    st.error("🚫 Account not found in this workspace. Contact your admin.")
+
+            # Back as a subtle text link — no columns needed
+            st.markdown("""
+<div style="text-align:center; margin-top:14px;">
+    <form action="" method="get">
+    </form>
+</div>""", unsafe_allow_html=True)
+            if st.button("← Use a different login method", use_container_width=True, type="secondary", key="google_back"):
+                st.session_state.google_flow = False
                 st.rerun()
-            else:
-                st.error("Invalid email address or password")
 
-        st.markdown("""<div class="right-footer"><a href="#">Forgot password?</a> &nbsp;•&nbsp; <a href="#">Contact support</a></div>""", unsafe_allow_html=True)
+            st.markdown("""
+<div style="margin-top:18px; padding-top:14px; border-top:1px solid #F4F4F5; font-size:11.5px; color:#A1A1AA; text-align:center; letter-spacing:0.01em;">
+    🔒 Secured by Google Identity Services
+</div>""", unsafe_allow_html=True)
+
+
+
+        # ============================================================
+        # STEP 1 — MAIN LOGIN PANEL
+        # ============================================================
+        else:
+            st.markdown("""<div class="right-header"><h1 class="right-title">Welcome back</h1><p class="right-subtitle">Sign in to access your threat console</p></div>""", unsafe_allow_html=True)
+
+            st.markdown("""<style>
+div[key="google_login_btn"] > button {
+    background: #FFFFFF !important; color: #18181B !important;
+    border: 1px solid #E4E4E7 !important; border-radius: 6px !important;
+    height: 42px !important; font-size: 13.5px !important;
+    font-weight: 500 !important; box-shadow: 0 1px 2px rgba(0,0,0,0.04) !important;
+    margin-top: 0 !important;
+}
+div[key="google_login_btn"] > button:hover {
+    background: #FAFAFA !important; border-color: #D4D4D8 !important;
+    transform: none !important;
+}
+</style>""", unsafe_allow_html=True)
+
+            if st.button(
+                "🔑  Continue with Google workspace",
+                use_container_width=True,
+                type="secondary",
+                key="google_login_btn"
+            ):
+                st.session_state.google_flow = True
+                st.rerun()
+
+            st.markdown('<div class="divider-row">or use credentials</div>', unsafe_allow_html=True)
+
+            st.markdown('<label class="input-label">Email Address</label>', unsafe_allow_html=True)
+            username = st.text_input(
+                "Email Address",
+                placeholder="you@company.com",
+                label_visibility="collapsed"
+            )
+
+            st.markdown('<label class="input-label">Password</label>', unsafe_allow_html=True)
+            password = st.text_input(
+                "Password",
+                type="password",
+                placeholder="••••••••",
+                label_visibility="collapsed"
+            )
+
+            if st.button("Sign In", use_container_width=True, key="signin_btn"):
+                if username == "admin@gmail.com" and password == "admin123":
+                    st.session_state.logged_in = True
+                    st.success("Authorized")
+                    st.rerun()
+                else:
+                    st.error("Invalid email address or password")
+
+            st.markdown("""<div class="right-footer"><a href="#">Forgot password?</a> &nbsp;•&nbsp; <a href="#">Contact support</a></div>""", unsafe_allow_html=True)
