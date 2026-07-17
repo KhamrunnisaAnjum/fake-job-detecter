@@ -889,12 +889,50 @@ def page_history(df):
             st.info("No records match your filter.")
         else:
             for _, row in filtered.iterrows():
-                bc = "badge-low" if row["risk"]=="Low Risk" else ("badge-medium" if row["risk"]=="Medium Risk" else "badge-high")
                 ts = str(row["created_at"])[:16] if pd.notna(row["created_at"]) else ""
-                with st.expander(f"**{str(row['title'])[:70]}** — {row['risk']} · {row['score']}% · {ts}"):
-                    dc1, dc2 = st.columns([2,1])
+                score = float(row["score"])
+                
+                # Recalculate risk to ensure it always matches score threshold (0-29 Low, 30-59 Med, 60-100 High)
+                if score >= 60:
+                    risk_label = "High Risk"
+                    bg_color = "#FEE2E2"
+                    text_color = "#DC2626"
+                elif score >= 30:
+                    risk_label = "Medium Risk"
+                    bg_color = "#FEF3C7"
+                    text_color = "#D97706"
+                else:
+                    risk_label = "Low Risk"
+                    bg_color = "#DCFCE7"
+                    text_color = "#15803D"
+                
+                with st.expander(f"**{str(row['title'])[:70]}** — {risk_label} · {score}% · {ts}"):
+                    st.markdown(f"""
+                    <style>
+                    div[data-testid="stExpander"]:has(.marker-{row['id']}) {{
+                        border-left: 4px solid {text_color} !important;
+                        border-radius: 8px;
+                    }}
+                    </style>
+                    <div class="marker-{row['id']}"></div>
+                    """, unsafe_allow_html=True)
+                    
+                    dc1, dc2 = st.columns([2.5, 1])
                     with dc1:
-                        st.markdown(f"**Risk:** `{row['risk']}`  \n**Score:** `{row['score']}%`  \n**Mode:** `{row.get('input_mode','—')}`")
+                        st.markdown(f"""
+                        <div style="margin-bottom: 10px;">
+                            <b>Risk:</b> <span style="background-color: {bg_color}; color: {text_color}; padding: 3px 10px; border-radius: 12px; font-size: 13px; font-weight: 600;">{risk_label}</span>
+                        </div>
+                        <div style="margin-bottom: 10px;">
+                            <b>Score:</b> {score}%
+                            <div style="width: 100%; max-width: 300px; background-color: #E2E8F0; border-radius: 4px; height: 6px; margin-top: 6px;">
+                                <div style="width: {score}%; background-color: {text_color}; height: 6px; border-radius: 4px;"></div>
+                            </div>
+                        </div>
+                        <div style="margin-bottom: 12px;">
+                            <b>Mode:</b> <code style="color: #64748B; background: #F1F5F9; padding: 2px 6px; border-radius: 4px;">{row.get('input_mode','—')}</code>
+                        </div>
+                        """, unsafe_allow_html=True)
                         if row.get("raw_message"):
                             st.markdown("**Original Message:**")
                             st.text(str(row["raw_message"])[:500])
