@@ -1,22 +1,13 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
+import SidebarWrapper from "@/components/SidebarWrapper";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
-import Sidebar from "@/components/Sidebar";
+const inter = Inter({ subsets: ["latin"], display: "swap" });
 
 export const metadata: Metadata = {
-  title: "JobX AI | Fake Job Detection",
-  description: "Detect fake job advertisements using Machine Learning.",
+  title: "JOBX",
+  description: "Advanced AI Threat Detection",
 };
 
 export default function RootLayout({
@@ -25,17 +16,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="min-h-screen flex bg-[#f8f9fa] text-gray-900 font-sans">
-        <Sidebar />
-        <main className="flex-1 overflow-y-auto p-8">
-            <div className="mx-auto max-w-7xl h-full">
-                {children}
-            </div>
-        </main>
+    <html lang="en">
+      <body className={`${inter.className} bg-[#F5F5F4] text-[#111111] antialiased min-h-screen overflow-x-hidden selection:bg-black selection:text-white`}>
+        <div className="flex">
+            <SidebarWrapper />
+            <main className="flex-1 lg:pl-[260px] min-h-screen relative">
+                <div className="w-full max-w-[1600px] mx-auto p-8">
+                    {children}
+                </div>
+            </main>
+        </div>
       </body>
     </html>
   );

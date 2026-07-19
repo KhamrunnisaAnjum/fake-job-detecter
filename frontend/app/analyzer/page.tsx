@@ -1,4 +1,5 @@
 "use client";
+import { apiFetch } from "@/utils/api";
 
 import { useState } from "react";
 import {
@@ -28,7 +29,7 @@ export default function AnalyzerPage() {
     setResult(null);
 
     try {
-      const res = await fetch("http://127.0.0.1:8000/analyze-message", {
+      const res = await apiFetch("http://127.0.0.1:8000/analyze-message", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -1,4 +1,5 @@
 "use client";
+import { apiFetch } from "@/utils/api";
 
 import { useEffect, useState } from "react";
 import { 
@@ -37,7 +38,7 @@ export default function ReportsPage() {
   useEffect(() => {
     async function fetchReports() {
       try {
-        const res = await fetch("http://127.0.0.1:8000/reports");
+        const res = await apiFetch("http://127.0.0.1:8000/reports");
         if (res.ok) {
           const json = await res.json();
           setData(json);

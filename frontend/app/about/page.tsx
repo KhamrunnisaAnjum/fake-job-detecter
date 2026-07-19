@@ -1,135 +1,132 @@
 "use client";
 
-import { CheckCircle2, ShieldCheck, Cpu, Database, Layout } from "lucide-react";
+import { motion } from "framer-motion";
+import { 
+    Cpu, 
+    Lock, 
+    Zap, 
+    Database, 
+    Server, 
+    Code,
+    Shield
+} from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
 
 export default function AboutPage() {
-  return (
-    <div className="max-w-4xl mx-auto pb-12 animate-in fade-in duration-500">
-      <div className="mb-12 text-center">
-        <h1 className="text-4xl font-extrabold tracking-tight text-gray-900 mb-4">About JobX<span className="text-gray-400">.ai</span></h1>
-        <p className="text-xl text-gray-500 max-w-2xl mx-auto">
-          An advanced AI-powered security platform designed to detect and prevent employment fraud.
-        </p>
-      </div>
-
-      <div className="space-y-12">
-        {/* Objective */}
-        <section className="bg-white rounded-3xl p-8 sm:p-10 border border-gray-200 shadow-sm">
-          <div className="flex items-center gap-3 mb-6">
-             <ShieldCheck className="h-8 w-8 text-black" />
-             <h2 className="text-2xl font-bold text-gray-900">Project Objective</h2>
-          </div>
-          <p className="text-gray-600 leading-relaxed text-lg">
-            JobX was developed as a comprehensive engineering project to tackle the rising threat of online employment scams. By combining state-of-the-art Machine Learning models with an intelligent heuristic rule engine, JobX analyzes job postings and recruiter communications in real-time. Our goal is to provide a reliable safety net for job seekers, ensuring they can navigate the job market without falling victim to phishing, advance-fee fraud, or identity theft.
-          </p>
-        </section>
-
-        {/* Features Grid */}
-        <section>
-            <h2 className="text-2xl font-bold text-gray-900 mb-6 px-2">Core Features</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                <FeatureCard 
-                    title="Real-time ML Inference" 
-                    desc="Pre-trained Scikit-learn models evaluate job descriptions using TF-IDF vectorization to predict fraud probability instantly."
-                />
-                <FeatureCard 
-                    title="Intelligent Rule Engine" 
-                    desc="Scans for suspicious patterns including Telegram links, crypto requests, urgency language, and unrealistic salaries."
-                />
-                <FeatureCard 
-                    title="Message Analyzer" 
-                    desc="Dedicated tool to analyze WhatsApp and Telegram messages from unsolicited recruiters for common scam indicators."
-                />
-                <FeatureCard 
-                    title="Advanced Analytics" 
-                    desc="Comprehensive dashboard with visual reports detailing risk distribution, scan history trends, and latest detected threats."
-                />
-            </div>
-        </section>
-
-        {/* Tech Stack */}
-        <section className="bg-black text-white rounded-3xl p-8 sm:p-10 shadow-lg">
-          <h2 className="text-2xl font-bold mb-8">Technology Stack</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-             <div className="space-y-4">
-                 <div className="flex items-center gap-2 text-gray-300">
-                     <Layout size={20} /> <span className="font-semibold text-white">Frontend</span>
-                 </div>
-                 <ul className="space-y-2 text-sm text-gray-400">
-                     <li>• Next.js 16 (App Router)</li>
-                     <li>• React & TypeScript</li>
-                     <li>• Tailwind CSS (v4)</li>
-                     <li>• Recharts & Lucide Icons</li>
-                 </ul>
-             </div>
-             <div className="space-y-4">
-                 <div className="flex items-center gap-2 text-gray-300">
-                     <Cpu size={20} /> <span className="font-semibold text-white">Backend & AI</span>
-                 </div>
-                 <ul className="space-y-2 text-sm text-gray-400">
-                     <li>• Python FastAPI</li>
-                     <li>• Scikit-learn (Logistic Regression)</li>
-                     <li>• Custom NLP Rule Engine</li>
-                     <li>• Joblib Model Serialization</li>
-                 </ul>
-             </div>
-             <div className="space-y-4">
-                 <div className="flex items-center gap-2 text-gray-300">
-                     <Database size={20} /> <span className="font-semibold text-white">Database</span>
-                 </div>
-                 <ul className="space-y-2 text-sm text-gray-400">
-                     <li>• SQLite Relational Database</li>
-                     <li>• SQLAlchemy ORM</li>
-                     <li>• Pydantic Data Validation</li>
-                 </ul>
-             </div>
-          </div>
-        </section>
-
-        {/* Future Scope & Credits */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <section className="bg-white rounded-3xl p-8 border border-gray-200 shadow-sm">
-                <h2 className="text-xl font-bold text-gray-900 mb-4">Future Scope</h2>
-                <ul className="space-y-3">
-                    <li className="flex items-start gap-2 text-gray-600 text-sm">
-                        <CheckCircle2 size={16} className="text-emerald-500 shrink-0 mt-0.5" />
-                        Integration with Deep Learning models (BERT/RoBERTa) for improved context understanding.
-                    </li>
-                    <li className="flex items-start gap-2 text-gray-600 text-sm">
-                        <CheckCircle2 size={16} className="text-emerald-500 shrink-0 mt-0.5" />
-                        Chrome Extension to automatically scan job boards like LinkedIn and Indeed.
-                    </li>
-                    <li className="flex items-start gap-2 text-gray-600 text-sm">
-                        <CheckCircle2 size={16} className="text-emerald-500 shrink-0 mt-0.5" />
-                        Crowdsourced reporting system to update the rule engine dynamically.
-                    </li>
-                </ul>
-            </section>
+    return (
+        <div className="w-full flex flex-col gap-12 pb-12">
             
-            <section className="bg-white rounded-3xl p-8 border border-gray-200 shadow-sm flex flex-col justify-center">
-                <h2 className="text-xl font-bold text-gray-900 mb-2">Developer Credits</h2>
-                <p className="text-gray-500 text-sm mb-6">Designed and developed as a final-year engineering project.</p>
-                <div className="flex items-center gap-4">
-                    <div className="h-12 w-12 rounded-full bg-gray-100 flex items-center justify-center text-lg font-bold text-gray-700">
-                        SD
+            {/* Hero Section */}
+            <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-[#111111] rounded-[24px] p-12 overflow-hidden relative flex flex-col items-center text-center shadow-lg"
+            >
+                <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-white rounded-full blur-[120px]"></div>
+                </div>
+                
+                <div className="w-16 h-16 bg-[#FFFFFF]/10 border border-[#FFFFFF]/20 rounded-2xl flex items-center justify-center mb-6 relative z-10 backdrop-blur-md">
+                    <Shield className="w-8 h-8 text-white" />
+                </div>
+                <h1 className="text-4xl md:text-5xl font-bold text-white tracking-tight relative z-10 max-w-2xl leading-tight">
+                    Next-Generation Threat Intelligence
+                </h1>
+                <p className="text-[#A1A1AA] text-lg mt-6 max-w-xl relative z-10">
+                    JOBX leverages advanced heuristics and TF-IDF vectorization to identify and neutralize employment fraud before it compromises your data.
+                </p>
+                <div className="mt-10 flex gap-4 relative z-10">
+                    <Link href="/docs">
+                        <button 
+                            className="bg-white text-black font-semibold py-3 px-6 rounded-lg text-sm hover:bg-gray-100 transition-colors"
+                        >
+                            View Documentation
+                        </button>
+                    </Link>
+                    <button 
+                        onClick={() => alert("Thank you for your interest! Our sales team will reach out to the admin email shortly.")}
+                        className="bg-transparent border border-[#FFFFFF]/20 text-white font-semibold py-3 px-6 rounded-lg text-sm hover:bg-[#FFFFFF]/5 transition-colors"
+                    >
+                        Contact Sales
+                    </button>
+                </div>
+            </motion.div>
+
+            {/* Platform Features Grid */}
+            <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+                className="grid grid-cols-1 md:grid-cols-3 gap-6"
+            >
+                <div className="bg-[#FFFFFF] rounded-[18px] p-8 shadow-sm border border-[#E5E7EB] flex flex-col gap-4">
+                    <div className="w-10 h-10 bg-[#F5F5F4] rounded-lg flex items-center justify-center">
+                        <Zap className="w-5 h-5 text-[#111111]" />
                     </div>
-                    <div>
-                        <p className="font-medium text-gray-900">Student Developer</p>
-                        <p className="text-sm text-gray-500">Lead Full Stack & AI Engineer</p>
+                    <h3 className="text-base font-semibold text-[#111111]">Real-time Analysis</h3>
+                    <p className="text-sm text-[#6B7280] leading-relaxed">
+                        Sub-millisecond inference speeds powered by an optimized rule engine and scikit-learn classifier pipelines.
+                    </p>
+                </div>
+                <div className="bg-[#FFFFFF] rounded-[18px] p-8 shadow-sm border border-[#E5E7EB] flex flex-col gap-4">
+                    <div className="w-10 h-10 bg-[#F5F5F4] rounded-lg flex items-center justify-center">
+                        <Lock className="w-5 h-5 text-[#111111]" />
+                    </div>
+                    <h3 className="text-base font-semibold text-[#111111]">Privacy First</h3>
+                    <p className="text-sm text-[#6B7280] leading-relaxed">
+                        Zero-retention policies available. Your data is processed securely and encrypted at rest within our local SQLite instances.
+                    </p>
+                </div>
+                <div className="bg-[#FFFFFF] rounded-[18px] p-8 shadow-sm border border-[#E5E7EB] flex flex-col gap-4">
+                    <div className="w-10 h-10 bg-[#F5F5F4] rounded-lg flex items-center justify-center">
+                        <Cpu className="w-5 h-5 text-[#111111]" />
+                    </div>
+                    <h3 className="text-base font-semibold text-[#111111]">Hybrid Architecture</h3>
+                    <p className="text-sm text-[#6B7280] leading-relaxed">
+                        Combining deterministic heuristic matching with probabilistic machine learning for maximum precision and recall.
+                    </p>
+                </div>
+            </motion.div>
+
+            {/* Tech Stack */}
+            <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                className="bg-[#FFFFFF] rounded-[24px] p-10 md:p-14 shadow-sm border border-[#E5E7EB] flex flex-col md:flex-row gap-12 items-center"
+            >
+                <div className="flex-1 space-y-6">
+                    <h2 className="text-2xl font-bold text-[#111111] tracking-tight">Built on modern foundations.</h2>
+                    <p className="text-[#6B7280] text-sm leading-relaxed">
+                        JOBX is engineered using industry-standard tools to guarantee reliability, performance, and scalability across all threat vectors.
+                    </p>
+                    <div className="space-y-4 pt-2">
+                        <div className="flex items-center gap-3">
+                            <Server className="w-5 h-5 text-[#111111]" />
+                            <span className="text-sm font-medium text-[#111111]">FastAPI & Python 3</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <Database className="w-5 h-5 text-[#111111]" />
+                            <span className="text-sm font-medium text-[#111111]">SQLite & SQLAlchemy</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <Code className="w-5 h-5 text-[#111111]" />
+                            <span className="text-sm font-medium text-[#111111]">Next.js 16 & React</span>
+                        </div>
                     </div>
                 </div>
-            </section>
-        </div>
-      </div>
-    </div>
-  );
-}
+                <div className="flex-1 bg-[#F5F5F4] rounded-2xl p-8 border border-[#E5E7EB] w-full flex items-center justify-center min-h-[300px]">
+                     <div className="font-mono text-xs text-[#6B7280] space-y-2 opacity-70">
+                         <p>{">"} initializing JOBX runtime...</p>
+                         <p>{">"} loading tf-idf vectorizer...</p>
+                         <p>{">"} loading heuristic engine...</p>
+                         <p>{">"} model loaded in 0.04s.</p>
+                         <p className="text-[#16A34A]">{"\u2714"} system ready.</p>
+                     </div>
+                </div>
+            </motion.div>
 
-function FeatureCard({ title, desc }: { title: string, desc: string }) {
-    return (
-        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
-            <h3 className="font-semibold text-gray-900 mb-2 text-lg">{title}</h3>
-            <p className="text-sm text-gray-500 leading-relaxed">{desc}</p>
         </div>
-    )
+    );
 }

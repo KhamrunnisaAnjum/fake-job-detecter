@@ -1,198 +1,569 @@
 "use client";
 
-import { useState } from "react";
-import { 
-  Moon, 
-  Sun, 
-  Trash2, 
-  Download, 
-  User, 
-  Mail, 
-  Shield,
-  Check
-} from "lucide-react";
-import { format } from "date-fns";
+import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Settings, Shield, User, Save, Lock, Palette, Globe, Download, Trash2, Bell, AlertTriangle, X } from "lucide-react";
+import Toast, { ToastType } from "@/components/Toast";
+import { useRouter } from "next/navigation";
+
+function getToken() {
+    const cookies = document.cookie.split(';');
+    for (let c of cookies) {
+        const [k, v] = c.trim().split('=');
+        if (k === 'jobx_token') return v;
+    }
+    return null;
+}
 
 export default function SettingsPage() {
-  const [darkMode, setDarkMode] = useState(false);
-  const [showClearConfirm, setShowClearConfirm] = useState(false);
-  const [clearing, setClearing] = useState(false);
-
-  // In a real app, we'd delete via backend. Here we just pretend if we had a clear endpoint, 
-  // or we could implement a DELETE /history/all endpoint.
-  // We'll just show the UI for now as requested.
-
-  const handleClearHistory = async () => {
-    setClearing(true);
-    // simulated delay
-    await new Promise(r => setTimeout(r, 1000));
-    setClearing(false);
-    setShowClearConfirm(false);
-    alert("History cleared successfully.");
-  };
-
-  const handleExport = async () => {
-    // In a real app, this might trigger a download of the SQLite DB or a full CSV dump
-    try {
-      const res = await fetch("http://127.0.0.1:8000/history?limit=10000");
-      if (res.ok) {
-        const history = await res.json();
-        const headers = ["ID", "Title", "Company", "Prediction", "Probability", "Risk", "Source", "Date"];
-        const csvContent = [
-          headers.join(","),
-          ...history.map((row: any) => 
-            [
-              row.id, 
-              `"${row.title.replace(/"/g, '""')}"`, 
-              `"${row.company.replace(/"/g, '""')}"`, 
-              row.prediction, 
-              row.probability, 
-              row.risk, 
-              row.source, 
-              row.created_at
-            ].join(",")
-          )
-        ].join("\n");
+    const router = useRouter();
     
-        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.setAttribute("href", url);
-        link.setAttribute("download", `jobx_full_export_${format(new Date(), "yyyyMMdd")}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Failed to export database.");
-    }
-  };
+    // UI State
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [toast, setToast] = useState<{message: string, type: ToastType} | null>(null);
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    
+    // Profile State
+    const [name, setName] = useState("");
+    const [email, setEmail] = useState("");
+    const [initialState, setInitialState] = useState<any>({});
+    
+    // Password State
+    const [currentPassword, setCurrentPassword] = useState("");
+    const [newPassword, setNewPassword] = useState("");
+    const [confirmPassword, setConfirmPassword] = useState("");
+    const [changingPassword, setChangingPassword] = useState(false);
 
-  return (
-    <div className="max-w-4xl mx-auto pb-12 animate-in fade-in duration-500">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight text-gray-900">Settings</h1>
-        <p className="mt-1 text-sm text-gray-500">Manage your preferences, account, and data.</p>
-      </div>
+    // Preferences State
+    const [strictMode, setStrictMode] = useState(true);
+    const [autoDelete, setAutoDelete] = useState(false);
+    const [theme, setTheme] = useState("system");
+    const [language, setLanguage] = useState("en");
+    const [emailAlerts, setEmailAlerts] = useState(true);
+    const [fraudAlerts, setFraudAlerts] = useState(true);
+    const [weeklyReports, setWeeklyReports] = useState(false);
 
-      <div className="space-y-8">
+    // Delete Account State
+    const [deletePassword, setDeletePassword] = useState("");
+    const [deleting, setDeleting] = useState(false);
+
+    useEffect(() => {
+        fetchSettings();
+    }, []);
+
+    const fetchSettings = async () => {
+        const token = getToken();
+        if (!token) {
+            router.push("/login");
+            return;
+        }
+
+        try {
+            const res = await fetch("http://localhost:8000/api/me", {
+                headers: { "Authorization": `Bearer ${token}` }
+            });
+            
+            if (res.ok) {
+                const data = await res.json();
+                setName(data.name || "");
+                setEmail(data.email || "");
+                setStrictMode(data.strict_mode ?? false);
+                setAutoDelete(data.auto_delete ?? false);
+                setTheme(data.theme || "system");
+                setLanguage(data.language || "en");
+                setEmailAlerts(data.email_alerts ?? true);
+                setFraudAlerts(data.fraud_alerts ?? true);
+                setWeeklyReports(data.weekly_reports ?? false);
+                
+                // Track initial state to know if anything changed
+                setInitialState(data);
+            } else {
+                setToast({ message: "Failed to load settings. Please log in again.", type: "error" });
+            }
+        } catch (e) {
+            setToast({ message: "Network error while loading settings.", type: "error" });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const hasChanges = () => {
+        if (!initialState.email) return true; // not loaded yet
+        return name !== initialState.name ||
+               email !== initialState.email ||
+               strictMode !== initialState.strict_mode ||
+               autoDelete !== initialState.auto_delete ||
+               theme !== initialState.theme ||
+               language !== initialState.language ||
+               emailAlerts !== initialState.email_alerts ||
+               fraudAlerts !== initialState.fraud_alerts ||
+               weeklyReports !== initialState.weekly_reports;
+    };
+
+    const handleSavePreferences = async () => {
+        if (!hasChanges()) {
+            setToast({ message: "No changes to save.", type: "info" });
+            return;
+        }
+
+        // Validate
+        if (!name.trim()) return setToast({ message: "Name cannot be empty.", type: "error" });
+        if (!email.includes("@")) return setToast({ message: "Invalid email address.", type: "error" });
+
+        setSaving(true);
+        const token = getToken();
+        try {
+            const res = await fetch("http://localhost:8000/api/settings", {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    name, email,
+                    strict_mode: strictMode,
+                    auto_delete: autoDelete,
+                    theme, language,
+                    email_alerts: emailAlerts,
+                    fraud_alerts: fraudAlerts,
+                    weekly_reports: weeklyReports
+                })
+            });
+            const data = await res.json();
+            
+            if (res.ok) {
+                setToast({ message: "Preferences saved successfully!", type: "success" });
+                fetchSettings(); // reload
+            } else {
+                setToast({ message: data.detail || "Failed to save preferences", type: "error" });
+            }
+        } catch (e) {
+            setToast({ message: "Network failure.", type: "error" });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handlePasswordChange = async () => {
+        if (!currentPassword) return setToast({ message: "Enter current password.", type: "error" });
+        if (newPassword.length < 8) return setToast({ message: "New password must be at least 8 characters.", type: "error" });
+        if (newPassword !== confirmPassword) return setToast({ message: "Passwords do not match.", type: "error" });
+
+        setChangingPassword(true);
+        const token = getToken();
+        try {
+            const res = await fetch("http://localhost:8000/api/password", {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    current_password: currentPassword,
+                    new_password: newPassword
+                })
+            });
+            const data = await res.json();
+            
+            if (res.ok) {
+                setToast({ message: "Password updated successfully!", type: "success" });
+                setCurrentPassword("");
+                setNewPassword("");
+                setConfirmPassword("");
+            } else {
+                setToast({ message: data.detail || "Failed to update password", type: "error" });
+            }
+        } catch (e) {
+            setToast({ message: "Network failure.", type: "error" });
+        } finally {
+            setChangingPassword(false);
+        }
+    };
+
+    const handleExport = async (type: string) => {
+        const token = getToken();
+        try {
+            const res = await fetch(`http://localhost:8000/api/export/${type}`, {
+                headers: { "Authorization": `Bearer ${token}` }
+            });
+            
+            if (!res.ok) throw new Error();
+            
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `jobx_export.${type}`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+        } catch (e) {
+            setToast({ message: "Failed to export data.", type: "error" });
+        }
+    };
+
+    const handleClearData = async (type: string) => {
+        if (!confirm(`Are you sure you want to delete all your ${type}? This cannot be undone.`)) return;
+
+        const token = getToken();
+        try {
+            const res = await fetch(`http://localhost:8000/api/data/${type}`, {
+                method: "DELETE",
+                headers: { "Authorization": `Bearer ${token}` }
+            });
+            if (res.ok) {
+                setToast({ message: `${type} deleted successfully!`, type: "success" });
+            } else {
+                setToast({ message: `Failed to delete ${type}`, type: "error" });
+            }
+        } catch (e) {
+            setToast({ message: "Network failure.", type: "error" });
+        }
+    };
+
+    const handleDeleteAccount = async () => {
+        if (!deletePassword) return setToast({ message: "Password is required to delete account.", type: "error" });
         
-        {/* User Profile */}
-        <section className="bg-white rounded-2xl border border-gray-200 p-6 sm:p-8 shadow-sm">
-          <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
-            <User className="mr-2 h-5 w-5 text-gray-500" /> User Profile
-          </h2>
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
-            <div className="h-20 w-20 rounded-full bg-gray-100 flex items-center justify-center border-2 border-dashed border-gray-300">
-               <span className="text-2xl font-bold text-gray-400">U</span>
-            </div>
-            <div className="flex-1 space-y-4 w-full">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-                <input type="text" defaultValue="Admin User" className="w-full sm:max-w-md rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-black" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                    <Mail size={14} /> Email Address
-                </label>
-                <input type="email" defaultValue="admin@jobx.ai" className="w-full sm:max-w-md rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-black bg-gray-50 text-gray-500" disabled />
-              </div>
-            </div>
-          </div>
-          <div className="mt-6">
-            <button className="px-4 py-2 bg-black text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors">
-                Save Changes
-            </button>
-          </div>
-        </section>
+        setDeleting(true);
+        const token = getToken();
+        try {
+            const res = await fetch("http://localhost:8000/api/account", {
+                method: "DELETE",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`
+                },
+                body: JSON.stringify({ password: deletePassword })
+            });
+            const data = await res.json();
+            
+            if (res.ok) {
+                document.cookie = "jobx_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+                router.push("/login");
+            } else {
+                setToast({ message: data.detail || "Failed to delete account", type: "error" });
+            }
+        } catch (e) {
+            setToast({ message: "Network failure.", type: "error" });
+        } finally {
+            setDeleting(false);
+        }
+    };
 
-        {/* Appearance */}
-        <section className="bg-white rounded-2xl border border-gray-200 p-6 sm:p-8 shadow-sm">
-          <h2 className="text-xl font-semibold text-gray-900 mb-6">Appearance</h2>
-          <div className="flex items-center justify-between p-4 border border-gray-200 rounded-xl">
-             <div>
-                 <p className="font-medium text-gray-900">Dark Mode</p>
-                 <p className="text-sm text-gray-500">Toggle dark mode theme for the dashboard.</p>
-             </div>
-             <button 
-                onClick={() => setDarkMode(!darkMode)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2 ${darkMode ? 'bg-black' : 'bg-gray-200'}`}
-             >
-                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${darkMode ? 'translate-x-6' : 'translate-x-1'}`} />
-             </button>
-          </div>
-          <div className="mt-4 flex gap-4">
-              <button 
-                onClick={() => setDarkMode(false)} 
-                className={`flex-1 flex flex-col items-center justify-center p-4 border rounded-xl transition-all ${!darkMode ? 'border-black bg-gray-50' : 'border-gray-200 hover:border-gray-300'}`}
-              >
-                  <Sun size={24} className={!darkMode ? 'text-black' : 'text-gray-400'} />
-                  <span className={`mt-2 text-sm font-medium ${!darkMode ? 'text-black' : 'text-gray-500'}`}>Light</span>
-              </button>
-              <button 
-                onClick={() => setDarkMode(true)} 
-                className={`flex-1 flex flex-col items-center justify-center p-4 border rounded-xl transition-all ${darkMode ? 'border-black bg-gray-50' : 'border-gray-200 hover:border-gray-300'}`}
-              >
-                  <Moon size={24} className={darkMode ? 'text-black' : 'text-gray-400'} />
-                  <span className={`mt-2 text-sm font-medium ${darkMode ? 'text-black' : 'text-gray-500'}`}>Dark</span>
-              </button>
-          </div>
-        </section>
+    const handleLogout = async (allDevices: boolean) => {
+        try {
+            await fetch("http://localhost:8000/api/logout", { method: "POST" });
+        } catch (e) {}
+        document.cookie = "jobx_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+        router.push("/login");
+    };
 
-        {/* Data Management */}
-        <section className="bg-white rounded-2xl border border-gray-200 p-6 sm:p-8 shadow-sm border-l-4 border-l-red-500">
-          <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
-            <Shield className="mr-2 h-5 w-5 text-red-500" /> Data & Privacy
-          </h2>
-          
-          <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 border border-gray-200 rounded-xl gap-4">
-                <div>
-                    <p className="font-medium text-gray-900">Export Database</p>
-                    <p className="text-sm text-gray-500 max-w-md">Download all scan history records in CSV format for offline analysis.</p>
+    if (loading) {
+        return (
+            <div className="w-full flex items-center justify-center py-20">
+                <div className="w-8 h-8 border-2 border-[#111111] border-t-transparent rounded-full animate-spin"></div>
+            </div>
+        );
+    }
+
+    return (
+        <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="w-full flex flex-col gap-8 pb-10"
+        >
+            {toast && (
+                <Toast 
+                    message={toast.message} 
+                    type={toast.type} 
+                    onClose={() => setToast(null)} 
+                />
+            )}
+
+            {/* Header */}
+            <div className="flex justify-between items-center bg-[#FFFFFF] rounded-[18px] shadow-sm border border-[#E5E7EB] p-8">
+                <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-[#F5F5F4] text-[#111111] rounded-lg border border-[#E5E7EB] flex items-center justify-center">
+                        <Settings className="w-6 h-6" />
+                    </div>
+                    <div>
+                        <h1 className="text-xl font-semibold text-[#111111] tracking-tight">System Settings</h1>
+                        <p className="text-sm text-[#6B7280] mt-1">Manage your account and threat detection preferences.</p>
+                    </div>
                 </div>
+            </div>
+
+            {/* Profile Settings */}
+            <div className="bg-[#FFFFFF] rounded-[18px] shadow-sm border border-[#E5E7EB] overflow-hidden">
+                <div className="p-6 border-b border-[#E5E7EB] flex items-center gap-3">
+                    <User className="w-5 h-5 text-[#6B7280]" />
+                    <h2 className="text-sm font-semibold text-[#111111]">Profile Settings</h2>
+                </div>
+                <div className="p-8 space-y-6">
+                    <div className="grid grid-cols-2 gap-6">
+                        <div>
+                            <label className="block text-xs font-semibold text-[#111111] mb-1.5">Full Name</label>
+                            <input 
+                                type="text" 
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                className="w-full bg-[#F5F5F4] border border-[#E5E7EB] rounded-lg px-4 py-2.5 text-sm focus:ring-1 focus:ring-[#111111] outline-none transition-all font-medium text-[#111111]" 
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-semibold text-[#111111] mb-1.5">Email Address</label>
+                            <input 
+                                type="email" 
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                className="w-full bg-[#F5F5F4] border border-[#E5E7EB] rounded-lg px-4 py-2.5 text-sm focus:ring-1 focus:ring-[#111111] outline-none transition-all font-medium text-[#111111]" 
+                            />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Password Management */}
+            <div className="bg-[#FFFFFF] rounded-[18px] shadow-sm border border-[#E5E7EB] overflow-hidden">
+                <div className="p-6 border-b border-[#E5E7EB] flex items-center gap-3">
+                    <Lock className="w-5 h-5 text-[#6B7280]" />
+                    <h2 className="text-sm font-semibold text-[#111111]">Password Management</h2>
+                </div>
+                <div className="p-8 space-y-6">
+                    <div className="grid grid-cols-3 gap-6">
+                        <div>
+                            <label className="block text-xs font-semibold text-[#111111] mb-1.5">Current Password</label>
+                            <input 
+                                type="password" 
+                                value={currentPassword}
+                                onChange={(e) => setCurrentPassword(e.target.value)}
+                                className="w-full bg-[#F5F5F4] border border-[#E5E7EB] rounded-lg px-4 py-2.5 text-sm focus:ring-1 focus:ring-[#111111] outline-none transition-all font-medium text-[#111111]" 
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-semibold text-[#111111] mb-1.5">New Password (8+ chars)</label>
+                            <input 
+                                type="password" 
+                                value={newPassword}
+                                onChange={(e) => setNewPassword(e.target.value)}
+                                className="w-full bg-[#F5F5F4] border border-[#E5E7EB] rounded-lg px-4 py-2.5 text-sm focus:ring-1 focus:ring-[#111111] outline-none transition-all font-medium text-[#111111]" 
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-semibold text-[#111111] mb-1.5">Confirm Password</label>
+                            <input 
+                                type="password" 
+                                value={confirmPassword}
+                                onChange={(e) => setConfirmPassword(e.target.value)}
+                                className="w-full bg-[#F5F5F4] border border-[#E5E7EB] rounded-lg px-4 py-2.5 text-sm focus:ring-1 focus:ring-[#111111] outline-none transition-all font-medium text-[#111111]" 
+                            />
+                        </div>
+                    </div>
+                    <div>
+                        <button 
+                            onClick={handlePasswordChange}
+                            disabled={changingPassword}
+                            className="bg-[#F5F5F4] hover:bg-[#E5E7EB] text-[#111111] border border-[#E5E7EB] font-medium py-2.5 px-5 rounded-lg transition-colors text-sm"
+                        >
+                            {changingPassword ? "Updating..." : "Update Password"}
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* Detection Preferences */}
+            <div className="bg-[#FFFFFF] rounded-[18px] shadow-sm border border-[#E5E7EB] overflow-hidden">
+                <div className="p-6 border-b border-[#E5E7EB] flex items-center gap-3">
+                    <Shield className="w-5 h-5 text-[#6B7280]" />
+                    <h2 className="text-sm font-semibold text-[#111111]">Detection Preferences</h2>
+                </div>
+                <div className="p-8 space-y-4">
+                    <div 
+                        onClick={() => setStrictMode(!strictMode)}
+                        className="flex items-center justify-between p-4 bg-[#F5F5F4] rounded-xl border border-[#E5E7EB] cursor-pointer transition-colors hover:border-[#D1D5DB]"
+                    >
+                        <div>
+                            <h3 className="font-semibold text-sm text-[#111111]">Strict Heuristics Mode</h3>
+                            <p className="text-xs text-[#6B7280] mt-0.5">Increases risk score for any mentions of WhatsApp or Telegram.</p>
+                        </div>
+                        <div className={`w-12 h-6 rounded-full relative shadow-inner transition-colors ${strictMode ? 'bg-[#111111]' : 'bg-[#E5E7EB]'}`}>
+                            <div className={`w-5 h-5 bg-white rounded-full absolute top-0.5 shadow-sm transition-all ${strictMode ? 'right-0.5' : 'left-0.5'}`}></div>
+                        </div>
+                    </div>
+                    <div 
+                        onClick={() => setAutoDelete(!autoDelete)}
+                        className="flex items-center justify-between p-4 bg-[#F5F5F4] rounded-xl border border-[#E5E7EB] cursor-pointer transition-colors hover:border-[#D1D5DB]"
+                    >
+                        <div>
+                            <h3 className="font-semibold text-sm text-[#111111]">Auto-Delete Safe Scans</h3>
+                            <p className="text-xs text-[#6B7280] mt-0.5">Automatically remove logs of jobs classified as Low Risk after 30 days.</p>
+                        </div>
+                        <div className={`w-12 h-6 rounded-full relative shadow-inner transition-colors ${autoDelete ? 'bg-[#111111]' : 'bg-[#E5E7EB]'}`}>
+                            <div className={`w-5 h-5 bg-white rounded-full absolute top-0.5 shadow-sm transition-all ${autoDelete ? 'right-0.5' : 'left-0.5'}`}></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+
+            {/* Notifications */}
+            <div className="bg-[#FFFFFF] rounded-[18px] shadow-sm border border-[#E5E7EB] overflow-hidden">
+                <div className="p-6 border-b border-[#E5E7EB] flex items-center gap-3">
+                    <Bell className="w-5 h-5 text-[#6B7280]" />
+                    <h2 className="text-sm font-semibold text-[#111111]">Notifications</h2>
+                </div>
+                <div className="p-8 space-y-4">
+                    <div 
+                        onClick={() => setEmailAlerts(!emailAlerts)}
+                        className="flex items-center justify-between p-4 bg-[#F5F5F4] rounded-xl border border-[#E5E7EB] cursor-pointer transition-colors hover:border-[#D1D5DB]"
+                    >
+                        <div>
+                            <h3 className="font-semibold text-sm text-[#111111]">Email Alerts</h3>
+                            <p className="text-xs text-[#6B7280] mt-0.5">Receive general account alerts and updates via email.</p>
+                        </div>
+                        <div className={`w-12 h-6 rounded-full relative shadow-inner transition-colors ${emailAlerts ? 'bg-[#111111]' : 'bg-[#E5E7EB]'}`}>
+                            <div className={`w-5 h-5 bg-white rounded-full absolute top-0.5 shadow-sm transition-all ${emailAlerts ? 'right-0.5' : 'left-0.5'}`}></div>
+                        </div>
+                    </div>
+                    <div 
+                        onClick={() => setFraudAlerts(!fraudAlerts)}
+                        className="flex items-center justify-between p-4 bg-[#F5F5F4] rounded-xl border border-[#E5E7EB] cursor-pointer transition-colors hover:border-[#D1D5DB]"
+                    >
+                        <div>
+                            <h3 className="font-semibold text-sm text-[#111111]">Fraud Detection Alerts</h3>
+                            <p className="text-xs text-[#6B7280] mt-0.5">Get notified immediately when you scan a High Risk job.</p>
+                        </div>
+                        <div className={`w-12 h-6 rounded-full relative shadow-inner transition-colors ${fraudAlerts ? 'bg-[#111111]' : 'bg-[#E5E7EB]'}`}>
+                            <div className={`w-5 h-5 bg-white rounded-full absolute top-0.5 shadow-sm transition-all ${fraudAlerts ? 'right-0.5' : 'left-0.5'}`}></div>
+                        </div>
+                    </div>
+                    <div 
+                        onClick={() => setWeeklyReports(!weeklyReports)}
+                        className="flex items-center justify-between p-4 bg-[#F5F5F4] rounded-xl border border-[#E5E7EB] cursor-pointer transition-colors hover:border-[#D1D5DB]"
+                    >
+                        <div>
+                            <h3 className="font-semibold text-sm text-[#111111]">Weekly Report Emails</h3>
+                            <p className="text-xs text-[#6B7280] mt-0.5">Receive a summary of your scan history and analytics every week.</p>
+                        </div>
+                        <div className={`w-12 h-6 rounded-full relative shadow-inner transition-colors ${weeklyReports ? 'bg-[#111111]' : 'bg-[#E5E7EB]'}`}>
+                            <div className={`w-5 h-5 bg-white rounded-full absolute top-0.5 shadow-sm transition-all ${weeklyReports ? 'right-0.5' : 'left-0.5'}`}></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Export Settings */}
+            <div className="bg-[#FFFFFF] rounded-[18px] shadow-sm border border-[#E5E7EB] overflow-hidden">
+                <div className="p-6 border-b border-[#E5E7EB] flex items-center gap-3">
+                    <Download className="w-5 h-5 text-[#6B7280]" />
+                    <h2 className="text-sm font-semibold text-[#111111]">Export Data</h2>
+                </div>
+                <div className="p-8">
+                    <div className="flex flex-wrap gap-4">
+                        <button onClick={() => handleExport('json')} className="bg-[#F5F5F4] hover:bg-[#E5E7EB] border border-[#E5E7EB] text-[#111111] font-medium py-2.5 px-5 rounded-lg transition-colors text-sm flex items-center gap-2">
+                            <Download className="w-4 h-4" /> Export My Data (JSON)
+                        </button>
+                        <button onClick={() => handleExport('csv')} className="bg-[#F5F5F4] hover:bg-[#E5E7EB] border border-[#E5E7EB] text-[#111111] font-medium py-2.5 px-5 rounded-lg transition-colors text-sm flex items-center gap-2">
+                            <Download className="w-4 h-4" /> Export Scan History (CSV)
+                        </button>
+                        <button onClick={() => handleExport('pdf')} className="bg-[#F5F5F4] hover:bg-[#E5E7EB] border border-[#E5E7EB] text-[#111111] font-medium py-2.5 px-5 rounded-lg transition-colors text-sm flex items-center gap-2">
+                            <Download className="w-4 h-4" /> Export Scan History (PDF)
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* Data Management */}
+            <div className="bg-[#FFFFFF] rounded-[18px] shadow-sm border border-[#E5E7EB] overflow-hidden">
+                <div className="p-6 border-b border-[#E5E7EB] flex items-center gap-3">
+                    <Trash2 className="w-5 h-5 text-[#6B7280]" />
+                    <h2 className="text-sm font-semibold text-[#111111]">Data Management</h2>
+                </div>
+                <div className="p-8">
+                    <div className="flex flex-wrap gap-4">
+                        <button onClick={() => handleClearData('scans')} className="bg-[#FEF2F2] hover:bg-[#FEE2E2] border border-[#FECACA] text-[#DC2626] font-medium py-2.5 px-5 rounded-lg transition-colors text-sm flex items-center gap-2">
+                            <Trash2 className="w-4 h-4" /> Clear Scan History
+                        </button>
+                        <button onClick={() => setShowDeleteModal(true)} className="bg-[#DC2626] hover:bg-[#B91C1C] text-white font-medium py-2.5 px-5 rounded-lg transition-colors text-sm flex items-center gap-2">
+                            <AlertTriangle className="w-4 h-4" /> Delete Account
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+
+
+            {/* Save Button */}
+            <div className="flex justify-end sticky bottom-8 z-10">
                 <button 
-                    onClick={handleExport}
-                    className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors shrink-0"
+                    onClick={handleSavePreferences}
+                    disabled={saving}
+                    className="flex items-center gap-2 bg-[#111111] hover:bg-black text-white font-medium py-3 px-8 rounded-xl shadow-lg transition-all text-sm disabled:opacity-50"
                 >
-                    <Download size={16} /> Export Data
+                    <Save className="w-4 h-4" /> {saving ? "Saving..." : "Save Preferences"}
                 </button>
             </div>
 
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 border border-red-100 bg-red-50 rounded-xl gap-4">
-                <div>
-                    <p className="font-medium text-red-900">Clear History</p>
-                    <p className="text-sm text-red-700 max-w-md">Permanently delete all scan records from the database. This action cannot be undone.</p>
-                </div>
-                {!showClearConfirm ? (
-                    <button 
-                        onClick={() => setShowClearConfirm(true)}
-                        className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors shrink-0"
-                    >
-                        <Trash2 size={16} /> Clear All
-                    </button>
-                ) : (
-                    <div className="flex items-center gap-2 shrink-0">
-                        <button 
-                            onClick={() => setShowClearConfirm(false)}
-                            className="px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-900"
+            {/* Delete Account Modal */}
+            <AnimatePresence>
+                {showDeleteModal && (
+                    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+                        <motion.div 
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl relative"
                         >
-                            Cancel
-                        </button>
-                        <button 
-                            onClick={handleClearHistory}
-                            disabled={clearing}
-                            className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
-                        >
-                            {clearing ? "Clearing..." : "Yes, Delete"}
-                        </button>
+                            <button 
+                                onClick={() => setShowDeleteModal(false)}
+                                className="absolute top-4 right-4 text-[#6B7280] hover:text-[#111111]"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                            
+                            <div className="w-12 h-12 bg-[#FEF2F2] rounded-full flex items-center justify-center mb-6">
+                                <AlertTriangle className="w-6 h-6 text-[#DC2626]" />
+                            </div>
+                            
+                            <h3 className="text-xl font-bold text-[#111111] mb-2">Delete Account</h3>
+                            <p className="text-sm text-[#6B7280] mb-6">
+                                This action is permanent and cannot be undone. All your scan history, reports, analytics, and personal data will be completely erased.
+                            </p>
+                            
+                            <div className="space-y-4 mb-8">
+                                <div>
+                                    <label className="block text-xs font-semibold text-[#111111] mb-1.5">Enter Password to Confirm</label>
+                                    <input 
+                                        type="password" 
+                                        value={deletePassword}
+                                        onChange={(e) => setDeletePassword(e.target.value)}
+                                        placeholder="Current Password"
+                                        className="w-full bg-[#F5F5F4] border border-[#E5E7EB] rounded-lg px-4 py-2.5 text-sm focus:ring-1 focus:ring-[#DC2626] outline-none transition-all font-medium text-[#111111]" 
+                                    />
+                                </div>
+                            </div>
+                            
+                            <div className="flex gap-4">
+                                <button 
+                                    onClick={() => setShowDeleteModal(false)}
+                                    className="flex-1 bg-[#F5F5F4] hover:bg-[#E5E7EB] text-[#111111] font-medium py-3 rounded-xl transition-colors text-sm"
+                                >
+                                    Cancel
+                                </button>
+                                <button 
+                                    onClick={handleDeleteAccount}
+                                    disabled={deleting}
+                                    className="flex-1 bg-[#DC2626] hover:bg-[#B91C1C] text-white font-medium py-3 rounded-xl transition-colors text-sm"
+                                >
+                                    {deleting ? "Deleting..." : "Permanently Delete"}
+                                </button>
+                            </div>
+                        </motion.div>
                     </div>
                 )}
-            </div>
-          </div>
-        </section>
-      </div>
-    </div>
-  );
+            </AnimatePresence>
+
+        </motion.div>
+    );
 }
