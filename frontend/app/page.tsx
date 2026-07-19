@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import LoginCard from "@/components/auth/LoginCard";
 import LoginPanel from "@/components/auth/LoginPanel";
 
@@ -11,4 +12,10 @@ export default function Home() {
       </div>
     </main>
   );
+=======
+import { redirect } from "next/navigation";
+
+export default function Home() {
+  redirect("/dashboard");
+>>>>>>> 9509c9af2835da46da2912733bb9952c531a46c6
 }
