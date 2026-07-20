@@ -62,11 +62,11 @@ export default function Sidebar() {
   const router = useRouter();
 
   const handleLogout = async () => {
-      try {
-          await fetch("http://localhost:8000/api/logout", { method: "POST" });
-      } catch (e) {}
-      document.cookie = "jobx_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-      router.push("/login");
+    try {
+      await fetch("http://localhost:8000/api/logout", { method: "POST" });
+    } catch (e) {}
+    document.cookie = "jobx_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    router.push("/login");
   };
 
   return (
@@ -123,7 +123,7 @@ export default function Sidebar() {
           </div>
         </div>
 
-        <button onClick={handleLogout} className="flex w-full items-center justify-center gap-3 rounded-2xl border border-neutral-200 py-3 hover:bg-neutral-100 transition">
+  <button onClick={handleLogout} className="flex w-full items-center justify-center gap-3 rounded-2xl border border-neutral-200 py-3 hover:bg-neutral-100 transition">
           <FiLogOut />
           Logout
         </button>

@@ -1,37 +1,38 @@
 from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
+
 from pydantic import BaseModel
 import joblib
 import sys
 import os
 import json
-from sqlalchemy import func
+
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from datetime import timedelta
 
 from database import Base, engine, SessionLocal
 from models import ScanHistory, User
 from rule_engine import analyze_job_text
 from auth import (
-    get_password_hash, 
-    verify_password, 
-    create_access_token, 
+    get_password_hash,
+    verify_password,
+    create_access_token,
     get_current_user,
     ACCESS_TOKEN_EXPIRE_MINUTES,
-    get_db
+    get_db,
 )
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
 
-# allow importing preprocess.py
+# Allow importing preprocess.py
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from preprocess import clean_text
 
 app = FastAPI(title="JOBX SaaS API")
 
-# Allow Next.js frontend
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -40,7 +41,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Load ML Model
 try:
     classifier = joblib.load("../model/classifier.pkl")
     vectorizer = joblib.load("../model/vectorizer.pkl")
@@ -87,13 +87,59 @@ class PasswordUpdate(BaseModel):
 class AccountDeleteRequest(BaseModel):
     password: str
 
+
 @app.get("/")
 def home():
     return {
-        "status": "online",
-        "message": "JOBX Backend Running",
-        "model_loaded": MODEL_LOADED,
-        "version": "2.0.0"
+
+        "message": "JobX Backend Running"
+    }
+@app.post("/predict")
+def predict(data: JobRequest):
+
+    text = " ".join([
+        data.title,
+        data.company,
+        data.description,
+        data.requirements,
+        data.salary
+    ])
+
+    cleaned = clean_text(text)
+
+    vector = vectorizer.transform([cleaned])
+
+    prediction = classifier.predict(vector)[0]
+
+    probability = classifier.predict_proba(vector)[0][1]
+
+    probability = round(probability * 100, 2)
+
+    if probability >= 60:
+        risk = "High Risk"
+    elif probability >= 30:
+        risk = "Medium Risk"
+    else:
+        risk = "Low Risk"
+
+    db = SessionLocal()
+
+    scan = ScanHistory(
+        title=data.title,
+        company=data.company,
+        prediction="Fake Job" if prediction == 1 else "Real Job",
+        probability=probability,
+        risk=risk
+    )
+
+    db.add(scan)
+    db.commit()
+    db.close()
+
+    return {
+        "prediction": "Fake Job" if prediction == 1 else "Real Job",
+        "probability": probability,
+        "risk": risk
     }
 
 @app.post("/api/signup")
@@ -715,3 +761,4 @@ def generate_reports_pdf_v2(current_user: User = Depends(get_current_user), db: 
         pdf.ln(4)
         
     return Response(content=bytes(pdf.output()), media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=jobx_reports.pdf"})
+
