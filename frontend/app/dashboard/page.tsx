@@ -92,10 +92,16 @@ export default function DashboardPage() {
   });
 
   const exportAnalyticsPDF = () => {
-      fetch(`http://127.0.0.1:8000/api/analytics/pdf`, {
+      let token = null;
+      const cookies = document.cookie.split(';');
+      for (let c of cookies) {
+          const [k, v] = c.trim().split('=');
+          if (k === 'jobx_token') token = v;
+      }
+      fetch(`http://localhost:8000/api/analytics/pdf`, {
           method: "GET",
           headers: {
-              "Authorization": `Bearer ${localStorage.getItem("token")}`
+              "Authorization": `Bearer ${token}`
           }
       })
       .then(res => {

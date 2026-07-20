@@ -41,8 +41,14 @@ export default function ReportsPage() {
     }, []);
 
     const exportPDF = () => {
-        const token = localStorage.getItem("token");
-        fetch(`http://127.0.0.1:8000/api/reports/pdf`, {
+        let token = null;
+        const cookies = document.cookie.split(';');
+        for (let c of cookies) {
+            const [k, v] = c.trim().split('=');
+            if (k === 'jobx_token') token = v;
+        }
+        
+        fetch(`http://localhost:8000/api/reports/pdf`, {
             headers: {
                 "Authorization": `Bearer ${token}`
             }

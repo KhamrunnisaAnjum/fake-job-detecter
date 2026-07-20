@@ -1,14 +1,17 @@
 from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
+from fastapi.responses import Response
 from pydantic import BaseModel
 import joblib
 import sys
 import os
 import json
+import csv
+import io
 from sqlalchemy import func
 from sqlalchemy.orm import Session
-from datetime import timedelta
+from datetime import timedelta, timezone
 
 from database import Base, engine, SessionLocal
 from models import ScanHistory, User
@@ -39,6 +42,21 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+import traceback
+
+class ExceptionLoggingMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        try:
+            return await call_next(request)
+        except Exception as exc:
+            with open("error.log", "w") as f:
+                f.write(traceback.format_exc())
+            raise exc
+
+app.add_middleware(ExceptionLoggingMiddleware)
 
 # Load ML Model
 try:
@@ -172,30 +190,30 @@ def update_password(pw: PasswordUpdate, current_user: User = Depends(get_current
     db.commit()
     return {"message": "Password updated successfully"}
 
-from fastapi.responses import Response
-import csv
-import io
-
 @app.get("/api/export/{data_type}")
 def export_data(data_type: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     scans = db.query(ScanHistory).filter(ScanHistory.user_id == current_user.id).all()
     
     if data_type == "json":
-        data = [{
-            "id": s.id, "title": s.title, "company": s.company if s.source != "Paste" else "N/A", 
-            "prediction": s.prediction, "probability": s.probability,
-            "risk": s.risk, "created_at": s.created_at.isoformat(),
-            "flags": s.warning_flags
-        } for s in scans]
-        return Response(content=json.dumps(data), media_type="application/json", headers={"Content-Disposition": "attachment; filename=jobx_export.json"})
+        try:
+            data = [{
+                "id": s.id, "title": s.title, "company": s.company if s.source != "Paste" else "N/A", 
+                "prediction": s.prediction, "probability": s.probability,
+                "risk": s.risk, "created_at": s.created_at.replace(tzinfo=timezone.utc).isoformat(),
+                "flags": json.loads(s.warnings) if s.warnings else []
+            } for s in scans]
+            return Response(content=json.dumps(data), media_type="application/json", headers={"Content-Disposition": "attachment; filename=jobx_export.json"})
+        except Exception as e:
+            import traceback
+            return Response(content=traceback.format_exc(), status_code=500, media_type="text/plain")
     
     elif data_type == "csv":
         output = io.StringIO()
         writer = csv.writer(output)
         writer.writerow(["ID", "Title", "Company", "Score", "Risk", "Date"])
         for s in scans:
-            comp = s.company if s.source != "Paste" else "N/A"
-            writer.writerow([s.id, s.title, comp, f"{s.probability}%", s.risk, s.created_at.isoformat()])
+            comp = s.company if (s.company and s.source != "Paste") else "N/A"
+            writer.writerow([s.id, s.title, comp, f"{s.probability}%", s.risk, s.created_at.replace(tzinfo=timezone.utc).isoformat()])
         return Response(content=output.getvalue(), media_type="text/csv", headers={"Content-Disposition": "attachment; filename=jobx_export.csv"})
         
     elif data_type == "pdf":
@@ -226,10 +244,13 @@ def export_data(data_type: str, current_user: User = Depends(get_current_user), 
         pdf.ln()
         
         pdf.set_font("helvetica", size=9)
+        def safe_str(t):
+            return str(t).encode('latin-1', 'replace').decode('latin-1') if t else "N/A"
         for s in scans:
             # truncate text to fit in cells
-            title = (s.title[:30] + "...") if len(s.title) > 30 else s.title
-            comp_raw = s.company if s.source != "Paste" else "N/A"
+            title_raw = safe_str(s.title)
+            title = (title_raw[:30] + "...") if len(title_raw) > 30 else title_raw
+            comp_raw = safe_str(s.company) if s.source != "Paste" else "N/A"
             company = (comp_raw[:25] + "...") if len(comp_raw) > 25 else comp_raw
             
             pdf.cell(15, 10, str(s.id), border=1)
@@ -239,8 +260,7 @@ def export_data(data_type: str, current_user: User = Depends(get_current_user), 
             pdf.cell(35, 10, str(s.created_at.date()), border=1)
             pdf.ln()
             
-        pdf_bytes = pdf.output()
-        return Response(content=bytes(pdf_bytes), media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=jobx_export.pdf"})
+        return Response(content=bytes(pdf.output(dest='S')), media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=jobx_export.pdf"})
     
     raise HTTPException(status_code=400, detail="Invalid export format")
 
@@ -290,9 +310,9 @@ def compute_hybrid_results(text, ml_probability, rule_data, is_message=False):
     final_probability = min(100.0, round(ml_probability + heuristic_risk, 2))
     
     # Strictly override weak ML model with rule engine flags if severe
-    if len(rule_data["warnings"]) >= 2:
+    if isinstance(rule_data["warnings"], list) and len(rule_data["warnings"]) >= 2:
         final_probability = max(final_probability, 95.0)
-    elif len(rule_data["warnings"]) == 1:
+    elif isinstance(rule_data["warnings"], list) and len(rule_data["warnings"]) == 1:
         final_probability = max(final_probability, 75.0)
         
     # Determine Risk Level
@@ -308,7 +328,7 @@ def compute_hybrid_results(text, ml_probability, rule_data, is_message=False):
 
     prediction = "Fake" if final_probability >= 50 else "Real"
     
-    warning_flags = rule_data["warnings"]
+    warning_flags = rule_data.get("warnings", [])
     
     if warning_flags:
         flags_text = ", ".join([f.replace("⚠️", "").strip() for f in warning_flags])
@@ -423,7 +443,7 @@ def get_history(limit: int = 50, offset: int = 0, current_user: User = Depends(g
             "recommended_action": scan.recommended_action,
             "explanation": scan.explanation,
             "source": scan.source,
-            "created_at": scan.created_at.isoformat()
+            "created_at": scan.created_at.replace(tzinfo=timezone.utc).isoformat()
         } for scan in scans
     ]
 
@@ -449,8 +469,8 @@ def get_stats(current_user: User = Depends(get_current_user), db: Session = Depe
     
     today = db.query(func.count(ScanHistory.id)).filter(ScanHistory.user_id == current_user.id, func.date(ScanHistory.created_at) == func.date('now')).scalar()
     
-    recent_threats = db.query(ScanHistory).filter(ScanHistory.user_id == current_user.id, ScanHistory.risk == "High Risk").order_by(ScanHistory.created_at.desc()).limit(10).all()
-    threats_list = [{"id": t.id, "title": t.title, "company": t.company, "probability": t.probability, "risk": t.risk, "created_at": t.created_at.isoformat()} for t in recent_threats]
+    recent_threats = db.query(ScanHistory).filter(ScanHistory.user_id == current_user.id, ScanHistory.risk != 'Low Risk').order_by(ScanHistory.created_at.desc()).limit(3).all()
+    threats_list = [{"id": t.id, "title": t.title, "company": t.company, "probability": t.probability, "risk": t.risk, "created_at": t.created_at.replace(tzinfo=timezone.utc).isoformat()} for t in recent_threats]
 
     return {
         "total_scans": total or 0,
@@ -498,6 +518,8 @@ def get_reports(current_user: User = Depends(get_current_user), db: Session = De
 def generate_analytics_pdf(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     import io
     from fpdf import FPDF
+    import matplotlib
+    matplotlib.use('Agg')
     import matplotlib.pyplot as plt
     from datetime import datetime, timedelta
     
@@ -510,7 +532,7 @@ def generate_analytics_pdf(current_user: User = Depends(get_current_user), db: S
         pdf.ln(20)
         pdf.set_font("helvetica", size=12)
         pdf.cell(0, 10, "No scan history available.", align="C")
-        return Response(content=bytes(pdf.output()), media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=jobx_analytics.pdf"})
+        return Response(content=bytes(pdf.output(dest='S')), media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=jobx_analytics.pdf"})
         
     avg_score_raw = db.query(func.avg(ScanHistory.probability)).filter(ScanHistory.user_id == current_user.id).scalar()
     avg_score = round(avg_score_raw, 1) if avg_score_raw else 0
@@ -601,12 +623,15 @@ def generate_analytics_pdf(current_user: User = Depends(get_current_user), db: S
     pdf.image(buf_pie, x=15, y=pdf.get_y(), w=70)
     pdf.image(buf_line, x=100, y=pdf.get_y(), w=100)
     
-    return Response(content=bytes(pdf.output()), media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=jobx_analytics.pdf"})
+    return Response(content=bytes(pdf.output(dest='S')), media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=jobx_analytics.pdf"})
 
 @app.get("/api/reports/pdf")
 def generate_reports_pdf_v2(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    print("DEBUG 1: STARTING REPORTS PDF")
     import io
     from fpdf import FPDF
+    import matplotlib
+    matplotlib.use('Agg')
     import matplotlib.pyplot as plt
     from datetime import datetime
     
@@ -619,7 +644,7 @@ def generate_reports_pdf_v2(current_user: User = Depends(get_current_user), db: 
         pdf.ln(20)
         pdf.set_font("helvetica", size=12)
         pdf.cell(0, 10, "No scan history available.", align="C")
-        return Response(content=bytes(pdf.output()), media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=jobx_reports.pdf"})
+        return Response(content=bytes(pdf.output(dest='S')), media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=jobx_reports.pdf"})
         
     avg_score_raw = db.query(func.avg(ScanHistory.probability)).filter(ScanHistory.user_id == current_user.id).scalar()
     avg_score = round(avg_score_raw, 1) if avg_score_raw else 0
@@ -696,7 +721,7 @@ def generate_reports_pdf_v2(current_user: User = Depends(get_current_user), db: 
         title = (s.title[:60] + "..") if len(s.title) > 60 else s.title
         pdf.cell(0, 6, f"{title} [{s.risk} - {s.probability}%]", ln=1)
         pdf.set_font("helvetica", "", 9)
-        pdf.cell(0, 6, f"Date: {s.created_at.strftime('%Y-%m-%d')} | Flags: {s.warning_flags or 'None'}", ln=1)
+        pdf.cell(0, 6, f"Date: {s.created_at.strftime('%Y-%m-%d')} | Flags: {s.warnings or 'None'}", ln=1)
         
         pdf.set_font("helvetica", "I", 9)
         pdf.set_text_color(75, 85, 99)
@@ -714,4 +739,4 @@ def generate_reports_pdf_v2(current_user: User = Depends(get_current_user), db: 
         pdf.cell(0, 6, rec, ln=1)
         pdf.ln(4)
         
-    return Response(content=bytes(pdf.output()), media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=jobx_reports.pdf"})
+    return Response(content=bytes(pdf.output(dest='S')), media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=jobx_reports.pdf"})

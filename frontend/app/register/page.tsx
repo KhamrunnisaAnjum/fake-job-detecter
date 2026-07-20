@@ -141,7 +141,11 @@ export default function RegisterPage() {
                   </button>
 
                   <div className="text-center mt-6">
-                      <Link href="/login" className="text-sm font-semibold text-[#111111] hover:underline">
+                      <Link 
+                          href="/login" 
+                          onClick={() => document.cookie = "jobx_token=; path=/; max-age=0;"}
+                          className="text-sm font-semibold text-[#111111] hover:underline"
+                      >
                           Already have an account? Login
                       </Link>
                   </div>
