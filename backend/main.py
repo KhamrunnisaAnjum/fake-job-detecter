@@ -1,72 +1,46 @@
-<<<<<<< HEAD
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-=======
 from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
->>>>>>> 9509c9af2835da46da2912733bb9952c531a46c6
+
 from pydantic import BaseModel
 import joblib
 import sys
 import os
-<<<<<<< HEAD
-
-from database import Base, engine, SessionLocal
-from models import ScanHistory
-
-# create database
-=======
 import json
-from sqlalchemy import func
+
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from datetime import timedelta
 
 from database import Base, engine, SessionLocal
 from models import ScanHistory, User
 from rule_engine import analyze_job_text
 from auth import (
-    get_password_hash, 
-    verify_password, 
-    create_access_token, 
+    get_password_hash,
+    verify_password,
+    create_access_token,
     get_current_user,
     ACCESS_TOKEN_EXPIRE_MINUTES,
-    get_db
+    get_db,
 )
 
 # Create database tables
->>>>>>> 9509c9af2835da46da2912733bb9952c531a46c6
 Base.metadata.create_all(bind=engine)
 
-# allow importing preprocess.py
+# Allow importing preprocess.py
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from preprocess import clean_text
 
-<<<<<<< HEAD
-app = FastAPI(title="JobX API")
-=======
 app = FastAPI(title="JOBX SaaS API")
->>>>>>> 9509c9af2835da46da2912733bb9952c531a46c6
 
-# Allow Next.js frontend
 app.add_middleware(
     CORSMiddleware,
-<<<<<<< HEAD
-    allow_origins=["http://localhost:3000"],
-=======
     allow_origins=["*"],
->>>>>>> 9509c9af2835da46da2912733bb9952c531a46c6
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Load ML Model
-<<<<<<< HEAD
-classifier = joblib.load("../model/classifier.pkl")
-vectorizer = joblib.load("../model/vectorizer.pkl")
-
-=======
 try:
     classifier = joblib.load("../model/classifier.pkl")
     vectorizer = joblib.load("../model/vectorizer.pkl")
@@ -74,7 +48,6 @@ try:
 except Exception as e:
     print(f"Error loading model: {e}")
     MODEL_LOADED = False
->>>>>>> 9509c9af2835da46da2912733bb9952c531a46c6
 
 class JobRequest(BaseModel):
     title: str
@@ -83,8 +56,6 @@ class JobRequest(BaseModel):
     requirements: str
     salary: str
 
-<<<<<<< HEAD
-=======
 class MessageRequest(BaseModel):
     message: str
     source: str = "Unknown"
@@ -115,12 +86,12 @@ class PasswordUpdate(BaseModel):
 
 class AccountDeleteRequest(BaseModel):
     password: str
->>>>>>> 9509c9af2835da46da2912733bb9952c531a46c6
+
 
 @app.get("/")
 def home():
     return {
-<<<<<<< HEAD
+
         "message": "JobX Backend Running"
     }
 @app.post("/predict")
@@ -169,12 +140,6 @@ def predict(data: JobRequest):
         "prediction": "Fake Job" if prediction == 1 else "Real Job",
         "probability": probability,
         "risk": risk
-    }
-=======
-        "status": "online",
-        "message": "JOBX Backend Running",
-        "model_loaded": MODEL_LOADED,
-        "version": "2.0.0"
     }
 
 @app.post("/api/signup")
@@ -796,4 +761,4 @@ def generate_reports_pdf_v2(current_user: User = Depends(get_current_user), db: 
         pdf.ln(4)
         
     return Response(content=bytes(pdf.output()), media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=jobx_reports.pdf"})
->>>>>>> 9509c9af2835da46da2912733bb9952c531a46c6
+

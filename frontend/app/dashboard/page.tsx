@@ -1,9 +1,3 @@
-<<<<<<< HEAD
-import DashboardLayout from "@/components/dashboard/DashboardLayout";
-
-export default function DashboardPage() {
-  return <DashboardLayout />;
-=======
 "use client";
 import { apiFetch } from "@/utils/api";
 
@@ -484,5 +478,4 @@ function StatCard({ title, value, trend, icon: Icon }: any) {
             </div>
         </div>
     );
->>>>>>> 9509c9af2835da46da2912733bb9952c531a46c6
 }
