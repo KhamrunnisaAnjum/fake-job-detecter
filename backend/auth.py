@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+import os
 import jwt
 import bcrypt
 from fastapi import Depends, HTTPException, status
@@ -6,7 +7,10 @@ from fastapi.security import OAuth2PasswordBearer
 from database import SessionLocal
 from models import User
 
-SECRET_KEY = "super-secret-jobx-key-for-development"
+SECRET_KEY = os.getenv("SECRET_KEY")
+
+if not SECRET_KEY:
+    raise RuntimeError("SECRET_KEY environment variable is not set")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days
 
