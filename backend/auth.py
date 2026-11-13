@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 import os
+from dotenv import load_dotenv
 import jwt
 import bcrypt
 from fastapi import Depends, HTTPException, status
@@ -7,7 +8,9 @@ from fastapi.security import OAuth2PasswordBearer
 from database import SessionLocal
 from models import User
 
+load_dotenv()
 SECRET_KEY = os.getenv("SECRET_KEY")
+
 
 if not SECRET_KEY:
     raise RuntimeError("SECRET_KEY environment variable is not set")
